@@ -4,6 +4,15 @@ import numba
 
 import minitorch
 
+from minitorch.cuda_ops import CudaOps
+from minitorch.tensor import Tensor
+from minitorch.tensor_data import TensorData
+from minitorch.tensor_functions import TensorBackend
+from minitorch.fast_ops import FastOps
+
+# Add this line to import GPUBackend
+from minitorch.cuda_ops import CudaOps as GPUBackend
+
 datasets = minitorch.datasets
 FastTensorBackend = minitorch.TensorBackend(minitorch.FastOps)
 if numba.cuda.is_available():
