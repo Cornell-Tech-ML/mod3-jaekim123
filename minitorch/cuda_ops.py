@@ -19,6 +19,7 @@ from .tensor_data import (
     to_index,
 )
 from .tensor_ops import MapProto, TensorOps
+from .operators import add, mul, lt, eq, is_close, sigmoid, relu, log, exp, id, inv
 
 FakeCUDAKernel = Any
 
@@ -56,17 +57,16 @@ class CudaOps(TensorOps):
         def ret(a: Tensor, out: Optional[Tensor] = None) -> Tensor:
             if out is None:
                 out = a.zeros(a.shape)
-
-            # Instantiate and run the cuda kernel.
             threadsperblock = THREADS_PER_BLOCK
             blockspergrid = (out.size + THREADS_PER_BLOCK - 1) // THREADS_PER_BLOCK
-            f[blockspergrid, threadsperblock](*out.tuple(), out.size, *a.tuple())  # type: ignore
+            f[blockspergrid, threadsperblock](*out.tuple(), out.size, *a.tuple())
             return out
 
         return ret
 
     @staticmethod
     def zip(fn: Callable[[float, float], float]) -> Callable[[Tensor, Tensor], Tensor]:
+        """See `tensor_ops.py`"""
         cufn: Callable[[float, float], float] = device_jit(fn)
         f = tensor_zip(cufn)
 
@@ -75,12 +75,56 @@ class CudaOps(TensorOps):
             out = a.zeros(c_shape)
             threadsperblock = THREADS_PER_BLOCK
             blockspergrid = (out.size + (threadsperblock - 1)) // threadsperblock
-            f[blockspergrid, threadsperblock](  # type: ignore
+            f[blockspergrid, threadsperblock](
                 *out.tuple(), out.size, *a.tuple(), *b.tuple()
             )
             return out
 
         return ret
+
+    @staticmethod
+    def add_zip(a: Tensor, b: Tensor) -> Tensor:
+        return CudaOps.zip(add)(a, b)
+
+    @staticmethod
+    def mul_zip(a: Tensor, b: Tensor) -> Tensor:
+        return CudaOps.zip(mul)(a, b)
+
+    @staticmethod
+    def lt_zip(a: Tensor, b: Tensor) -> Tensor:
+        return CudaOps.zip(lt)(a, b)
+
+    @staticmethod
+    def eq_zip(a: Tensor, b: Tensor) -> Tensor:
+        return CudaOps.zip(eq)(a, b)
+
+    @staticmethod
+    def is_close_zip(a: Tensor, b: Tensor) -> Tensor:
+        return CudaOps.zip(is_close)(a, b)
+
+    @staticmethod
+    def sigmoid_map(a: Tensor) -> Tensor:
+        return CudaOps.map(sigmoid)(a)
+
+    @staticmethod
+    def relu_map(a: Tensor) -> Tensor:
+        return CudaOps.map(relu)(a)
+
+    @staticmethod
+    def log_map(a: Tensor) -> Tensor:
+        return CudaOps.map(log)(a)
+
+    @staticmethod
+    def exp_map(a: Tensor) -> Tensor:
+        return CudaOps.map(exp)(a)
+
+    @staticmethod
+    def id_map(a: Tensor) -> Tensor:
+        return CudaOps.map(id)(a)
+
+    @staticmethod
+    def inv_map(a: Tensor) -> Tensor:
+        return CudaOps.map(inv)(a)
 
     @staticmethod
     def reduce(
