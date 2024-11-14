@@ -1,6 +1,9 @@
 import random
 
 import numba
+import numba.cuda
+numba.cuda.select_device(0)
+numba.cuda.close()
 
 import minitorch
 
@@ -73,53 +76,52 @@ class FastTrain:
     def run_many(self, X):
         return self.model.forward(minitorch.tensor(X, backend=self.backend))
 
-    def train(self, data, learning_rate, max_epochs=500, log_fn=default_log_fn):
+    def train(self, data, learning_rate, max_epochs=50, log_fn=default_log_fn):
         self.model = Network(self.hidden_layers, self.backend)
-        # Adjust learning rate
         optim = minitorch.SGD(self.model.parameters(), learning_rate * 0.01)
-        BATCH = 1  # Single sample batch
-        patience = 100  # Much more patience
-        min_delta = 0.00001  # Smaller improvement threshold
+        BATCH = 4  # Smaller batch size
         
-        # Initialize early stopping variables inside train method
+        # Initialize early stopping variables
         best_loss = float('inf')
+        patience = 10
         patience_counter = 0
         
-        # Create tensor constants
+        # Create tensor constants once
         one = minitorch.tensor([1.0], backend=self.backend)
         eps = minitorch.tensor([1e-8], backend=self.backend)
 
-        losses = []
         for epoch in range(max_epochs):
             total_loss = 0.0
             c = list(zip(data.X, data.y))
             random.shuffle(c)
             X_shuf, y_shuf = zip(*c)
 
-            batch_losses = []
+            # Process in smaller batches
             for i in range(0, len(X_shuf), BATCH):
                 optim.zero_grad()
-                X = minitorch.tensor(X_shuf[i : i + BATCH], backend=self.backend)
-                y = minitorch.tensor(y_shuf[i : i + BATCH], backend=self.backend)
+                
+                # Use smaller chunks of data
+                batch_end = min(i + BATCH, len(X_shuf))
+                X = minitorch.tensor(X_shuf[i:batch_end], backend=self.backend)
+                y = minitorch.tensor(y_shuf[i:batch_end], backend=self.backend)
                 
                 # Forward pass
                 out = self.model.forward(X).view(y.shape[0])
+                out = out * 0.99 + 0.005  # Restrict range
                 
-                # Compute stable loss using tensors
-                out = out * 0.99 + 0.005
-                y_term = y * (out + eps).log()
-                not_y_term = (one - y) * (one - out + eps).log()
-                loss = -(y_term + not_y_term).sum()
-                
-                batch_losses.append(loss.detach()[0])
+                # Compute loss
+                loss = -(y * (out + eps).log() + (one - y) * (one - out + eps).log()).sum()
                 loss.backward()
                 optim.step()
+                
+                # Free GPU memory
+                if self.backend.cuda:
+                    numba.cuda.current_context().deallocations.clear()
+                
+                total_loss += loss.detach()[0]
 
-            total_loss = sum(batch_losses) / len(batch_losses)
-            losses.append(total_loss)
-            
-            # Early stopping check
-            if total_loss < best_loss - min_delta:
+            # Early stopping
+            if total_loss < best_loss:
                 best_loss = total_loss
                 patience_counter = 0
             else:
@@ -129,7 +131,7 @@ class FastTrain:
                 print(f"Early stopping at epoch {epoch}")
                 break
                 
-            if epoch % 5 == 0 or epoch == max_epochs - 1:
+            if epoch % 5 == 0:
                 X = minitorch.tensor(data.X, backend=self.backend)
                 y = minitorch.tensor(data.y, backend=self.backend)
                 out = self.model.forward(X).view(y.shape[0])
