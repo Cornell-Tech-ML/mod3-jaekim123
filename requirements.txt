@@ -1,9 +1,6 @@
-colorama==0.4.3
-hypothesis == 6.54
-numba == 0.60
-numpy == 2.0.0
-pre-commit == 2.20.0
-pytest == 8.3.2
-pytest-env
-pytest-runner == 5.2
-typing_extensions
+numpy>=1.21.0
+numba>=0.56.4
+plotly>=5.13.0
+pytest>=7.1.1
+hypothesis>=6.75.3
+torch>=1.13.0
