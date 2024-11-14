@@ -345,38 +345,34 @@ def tensor_reduce(
         reduce_dim: int,
         reduce_value: float,
     ) -> None:
-        BLOCK_DIM = 1024
+        # Reduce block size to avoid resource exhaustion
+        BLOCK_DIM = 256  # Reduced from 1024
         cache = cuda.shared.array(BLOCK_DIM, numba.float64)
         out_index = cuda.local.array(MAX_DIMS, numba.int32)
         out_pos = cuda.blockIdx.x
         pos = cuda.threadIdx.x
 
-        # Handle case where thread index exceeds output size
         if out_pos >= out_size:
             return
 
-        # Calculate the output index
         to_index(out_pos, out_shape, out_index)
-        
-        # Initialize reduction
         cache[pos] = reduce_value
+
+        # Process in smaller chunks
+        chunk_size = min(BLOCK_DIM, a_shape[reduce_dim])
+        for j in range(pos, a_shape[reduce_dim], chunk_size):
+            if j < a_shape[reduce_dim]:
+                in_index = cuda.local.array(MAX_DIMS, numba.int32)
+                for i in range(len(out_shape)):
+                    in_index[i] = out_index[i]
+                in_index[reduce_dim] = j
+                
+                in_pos = index_to_position(in_index, a_strides)
+                cache[pos] = fn(cache[pos], a_storage[in_pos])
         
-        # Loop over the reduction dimension
-        for j in range(pos, a_shape[reduce_dim], BLOCK_DIM):
-            # Copy output index to get input index
-            in_index = cuda.local.array(MAX_DIMS, numba.int32)
-            for i in range(len(out_shape)):
-                in_index[i] = out_index[i]
-            in_index[reduce_dim] = j
-            
-            # Calculate input position and update cache
-            in_pos = index_to_position(in_index, a_strides)
-            cache[pos] = fn(cache[pos], a_storage[in_pos])
-        
-        # Synchronize threads
         cuda.syncthreads()
         
-        # Reduce within block
+        # Reduce within block with smaller stride
         stride = BLOCK_DIM // 2
         while stride > 0:
             if pos < stride:
@@ -384,12 +380,11 @@ def tensor_reduce(
             cuda.syncthreads()
             stride //= 2
         
-        # Write output
         if pos == 0:
             out_pos = index_to_position(out_index, out_strides)
             out[out_pos] = cache[0]
 
-    return cuda.jit()(_reduce)  # type: ignore
+    return cuda.jit()(_reduce)
 
 
 def _mm_practice(out: Storage, a: Storage, b: Storage, size: int) -> None:
