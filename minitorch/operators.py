@@ -203,11 +203,17 @@ def sum(ls: Iterable[float]) -> float:
     """
     return reduce(add)(ls, 0.0)
 
-# minitorch/operators.py
 
-def prod(shape):
-    """Compute the product of the dimensions in the shape."""
-    result = 1
-    for dim in shape:
-        result *= dim
-    return result
+def prod(ls: Iterable[float]) -> float:
+    """Multiply all elements in a list of floats.
+
+    Args:
+    ----
+        ls: List of floats.
+
+    Returns:
+    -------
+        Product of all elements in the list.
+
+    """
+    return reduce(mul)(ls, 1.0)
