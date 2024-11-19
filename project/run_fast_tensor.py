@@ -12,7 +12,7 @@ start_time = None
 def default_log_fn(epoch, total_loss, correct, losses):
     current_time = time.time() - start_time
     epoch_time = current_time / (epoch + 1) if epoch > 0 else current_time
-    
+
     if epoch % 10 == 0:  # Only print every 10th epoch
         print(f"Epoch {epoch:4d}, Loss {total_loss:>13.12f}, Correct {correct:3d}, Time {epoch_time:.3f} seconds")
 
@@ -25,7 +25,7 @@ class Network(minitorch.Module):
         super().__init__()
         self.hidden = hidden
         self.backend = backend
-        
+
         # Submodules
         self.layer1 = Linear(2, hidden, backend)
         self.layer2 = Linear(hidden, hidden, backend)
@@ -63,7 +63,7 @@ class FastTrain:
     def train(self, data, learning_rate, epochs=500, log_fn=default_log_fn):
         global start_time
         start_time = time.time()
-        
+
         self.model = Network(self.hidden_layers, self.backend)
         optim = minitorch.SGD(self.model.parameters(), learning_rate)
         BATCH = 32
@@ -79,7 +79,7 @@ class FastTrain:
                 optim.zero_grad()
                 X = minitorch.tensor(X_shuf[i : i + BATCH], backend=self.backend)
                 y = minitorch.tensor(y_shuf[i : i + BATCH], backend=self.backend)
-                
+
                 out = self.model.forward(X).view(y.shape[0])
                 prob = (out * y) + (out - 1.0) * (y - 1.0)
                 loss = -prob.log()
@@ -89,7 +89,7 @@ class FastTrain:
                 optim.step()
 
             losses.append(total_loss)
-            
+
             # Logging
             if epoch % 10 == 0:  # Print every 10th epoch
                 X = minitorch.tensor(data.X, backend=self.backend)

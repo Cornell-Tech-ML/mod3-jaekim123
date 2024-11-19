@@ -1,17 +1,32 @@
+"""Timing utilities for benchmarking tensor operations."""
+
 import random
 from collections import defaultdict
-import minitorch
 import time
 import sys
 import numpy as np
+import minitorch
 
 FastTensorBackend = minitorch.TensorBackend(minitorch.FastOps)
 
-def run_matmul(backend, size=16) -> None:
+
+def run_matmul(backend, size: int = 16) -> None:
+    """Run matrix multiplication benchmark.
+
+    Performs matrix multiplication on random tensors of specified size.
+
+    Args:
+        backend: Tensor backend to use for computations
+        size: Size of the matrices to multiply (default: 16)
+
+    Returns:
+        None
+    """
     batch_size = 2
     x = minitorch.rand((batch_size, size, size), backend=backend)
     y = minitorch.rand((batch_size, size, size), backend=backend)
     z = x @ y
+
 
 if __name__ == "__main__":
     # Warmup

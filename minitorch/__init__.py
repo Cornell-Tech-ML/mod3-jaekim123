@@ -1,3 +1,10 @@
+"""MiniTorch package for tensor operations and neural networks.
+
+This package implements a subset of PyTorch functionality for educational purposes.
+Includes implementations of tensors, autograd, and neural network modules.
+"""
+
+# Rest of the file content...
 from .testing import MathTest, MathTestVariable  # type: ignore # noqa: F401,F403
 from .fast_ops import *  # noqa: F401,F403
 from .cuda_ops import *  # noqa: F401,F403
